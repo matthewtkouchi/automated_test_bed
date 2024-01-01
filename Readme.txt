@@ -11,5 +11,5 @@ The script works as follows:
 /* HOW TO GET STARTED */
 The user can run the auto.py executable to run the script.
 
-For developers, all the required packages are listed in requirements.txt. To install the neccesary packages run 'pip install -r requirements.txt' 
-in the terminal. After the installation is complete, the user may run the auto.py script and make any neccesary changes.
+For developers, all the required packages are listed in requirements.txt. To install the neccesary packages cd into the src directory from the terminal. 
+Then run 'pip install -r requirements.txt'. After the installation is complete, the user may run the auto.py script and make any neccesary changes.
