@@ -13,3 +13,10 @@ The user can run the auto.py executable to run the script.
 
 For developers, all the required packages are listed in requirements.txt. To install the neccesary packages cd into the src directory from the terminal. 
 Then run 'pip install -r requirements.txt'. After the installation is complete, the user may run the auto.py script and make any neccesary changes.
+
+
+
+/* FUTURE WORK */
+- Timing delays need to be more dynamic 
+- Testing needs to be done to determine how much delay timing is needed for certain measurement settings for the NA/SA
+- Time gating only keeps the peak signal. The target signal may not always be the strongest, so improvements must be made to this.
