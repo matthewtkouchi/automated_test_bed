@@ -45,6 +45,11 @@ if ff_mode == 'sa':
 elif ff_mode == 'na':
     run_sa(setup_items, my_instrument, ser, ff_mode, Total_Paths)
 
+'''
+What common outputs from run_na and run_sa can be used to plot the data?
+- Total_Paths: As long as run_na and run_sa output csv files of the same format to unique paths, the rest of the code below will work for both.
+'''
+
 # Create a tkinter window
 root = tk.Tk()
 root.title("Matplotlib in Tkinter")
@@ -67,7 +72,7 @@ canvas_widget.pack()
 
 # Create toggle buttons for each item in column_data
 toggle_buttons = []
-toggle_button = Checkbutton(root, text="Normalized", variable=Normalized, onvalue = 1, offvalue = 0, command=onNormalizedClick(Normalized))
+toggle_button = Checkbutton(root, text="Normalized", variable=Normalized, onvalue = 1, offvalue = 0, command=lambda: onNormalizedClick(Normalized, y_data_unnorm, y_data_norm, ax, canvas, x_data))
 toggle_buttons.append(toggle_button)
 toggle_button.pack()
 

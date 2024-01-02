@@ -1,7 +1,25 @@
 import os
 import tkinter as tk
+from enum import Enum
 from tkinter import messagebox, ttk
 import serial.tools.list_ports
+
+# NA Trace Measurement Types
+class MType(Enum):
+    LOGMAG = 1
+    LINEAR = 2
+    VSWR = 3
+    PHASE = 4
+    SMITH = 5
+    POLAR = 6
+    REAL = 7
+    IMAG = 8
+    
+# Declare dictionary to store widget mappings to tk entries
+widget_mapping = {}
+
+# All settings related to the motion controller frame
+motion_frame_settings = ['COM_PORT', 'Start_Angle', 'Stop_Angle', 'Step_Size']
 
 # Declare dictionaries to store setup items for SA, NA, and Motion Controller
 setup_items = {
@@ -22,15 +40,26 @@ setup_items = {
         'Start_Angle': -86,
         'Stop_Angle': 86,
         'Step_Size': 2,
-        'Span': 600e6,
-        'Num_Points': 401,
-        'Average_Passes': 1,
-        'IFBW': 1e3,
+        'Span': 600e6, #Hz
+        'Center_Freq': 28e9, #Hz
+        'Num_Points': 201,
+        'Average_Passes': 2,
+        'Average_Mode': 'SWEEP', #SWEEP or POINT
+        'IFBW': 1e3, # Hz
+        'Scale': 10, #dB/division
+        'Ref_Lvl': 0, #dB
+        'Power': -10, #dBm : Set power level from +3 to -45 dBm in .1 dB steps
+        'Trigger_Source': 'INT', #INT or EXT
+        'Start_Time': -10e-9, #s
+        'Stop_Time': 10e-9, #s
+        'Time_Gate_Width': 20e-9, #s
+        'Enable_Gating': 0, # 0 or 1
     },
-    'data': {
+    'data': {   # Most is not used as of now
         'meas_foldername': "measurement-files",
         'meas_folderpath': None,
         'Normalized': 0,
+        'Trace_Format': MType.LOGMAG,
     }
 }
         
@@ -74,126 +103,118 @@ def _get_ff_mode():
     # Return the selected mode
     return selected_mode.get()
 
+# Function to create labels for each setting entry
+def create_tk_labels(frame, key, row):
+    key_up = key.upper()
+    if "FREQ" in key_up or "BW" in key_up or "SPAN" in key_up:
+        tk.Label(frame, text=f"{key} (Hz):").grid(row=row)
+    elif "ANGLE" in key_up or "STEP_SIZE" in key_up:
+        tk.Label(frame, text=f"{key} (deg):").grid(row=row)
+    elif "SCALE" in key_up or "REF" in key_up:
+        tk.Label(frame, text=f"{key} (dB):").grid(row=row)
+    elif "POWER" in key_up:
+        tk.Label(frame, text=f"{key} (dBm):").grid(row=row)
+    elif "TIME" in key_up:
+        tk.Label(frame, text=f"{key} (s):").grid(row=row)
+    elif "TRIGGER" in key_up:
+        tk.Label(frame, text=f"{key} (INT or EXT):").grid(row=row)
+    elif "ENABLE" in key_up:
+        tk.Label(frame, text=f"{key} (0=OFF or 1=ON):").grid(row=row)
+    else:
+        tk.Label(frame, text=f"{key}:").grid(row=row)
+
+
+# Function to create entry widget
+def create_tk_entry(frame, row, col, setting, ff_mode):
+    entry = tk.Entry(frame)
+    entry.insert(0,setup_items[ff_mode][setting])
+    entry.grid(row=row, column=col)
+    widget_mapping[setting] = entry
+
+# Function to create combobox widget
+def create_tk_combobox(frame, value, row, col, setting, state="readonly"):
+    combo = ttk.Combobox(frame, values=value, state=state)
+    combo.grid(row=row, column=col)
+    widget_mapping[setting] = combo
+    
+def validate_comboboxes(ok_button1, ok_button2):
+    for key, widget in widget_mapping.items():
+        if isinstance(widget, ttk.Combobox):
+            if not widget.get():
+                ok_button1.config(state=tk.DISABLED)
+                ok_button2.config(state=tk.DISABLED)
+                return
+    ok_button1.config(state=tk.NORMAL)
+    ok_button2.config(state=tk.NORMAL)
 
 def _select_instrument_resource(setup_items, rm, ff_mode):
     # Button function to return the chosen resource and close the GUI
     def OK_press(mode):
-        setup_items[mode]['INSTR_ID'] = combo1.get()
-        setup_items[mode]['COM_PORT'] = combo2.get()
-        setup_items[mode]['Start_Angle'] = start.get()
-        setup_items[mode]['Step_Size'] = step.get()
-        setup_items[mode]['Stop_Angle'] = stop.get()
-        setup_items[mode]['Span'] = span.get()
-        setup_items[mode]['Center_Freq'] = center.get()
-        setup_items[mode]['VBW'] = vbw.get()
-        setup_items[mode]['RBW'] = rbw.get()
-
-        # Fix for modes 
-        print("Instrument ID is: " + setup_items[mode]['INSTR_ID'])
-        print("Montion Controller Port is: " + setup_items[mode]['COM_PORT'])
-        print("Start Angle Selected is: " + setup_items[mode]['Start_Angle'])
-        print("Stop Angle Selected is: " + setup_items[mode]['Stop_Angle'])
-        print("Step Size Selected is: " + setup_items[mode]['Step_Size'])
-        print("Frequnecy Span is: " + setup_items[mode]['Span'])
-        print("Center Frequnecy is: " + setup_items[mode]['Center_Freq'])
-        print("VBW is: " + setup_items[mode]['VBW'])
-        print("RBW is: " + setup_items[mode]['RBW'])
-
+        for (key, value) in widget_mapping.items():
+            setup_items[mode][key] = value.get()
+        print(setup_items[mode]) # DEBUG
         root.destroy()
 
     # List available resources
     available_resources = rm.list_resources()
-    
+
     # Create a GUI to select the instrument
     root = tk.Tk()
     root.title("Select Instrument")
     root.geometry("640x400")  
     root.resizable(False, False)  
+
+    # NOTEBOOK
+    notebook = ttk.Notebook(root)
+    notebook.pack(fill=tk.BOTH, expand=True)
+
+    # Create Frames for Settings
+    motion_frame = ttk.Frame(notebook)
+    notebook.add(motion_frame, text='Motion Controller')
+    ff_frame = ttk.Frame(notebook)
+    notebook.add(ff_frame, text='FieldFox')
+
+    # Initialized row counters to zero and create labels
+    row1 = 0 
+    row2 = 0
+    for (key, _) in setup_items[ff_mode].items():
+        if key in motion_frame_settings:
+            create_tk_labels(motion_frame, key, row1)
+            row1 += 1
+        else: 
+            create_tk_labels(ff_frame, key, row2)
+            row2 += 1
+            
+    # Reinitialize row counters to zero and create widgets
+    row1 = 0
+    row2 = 0
+    for (key, _) in setup_items[ff_mode].items():
+        if key == 'COM_PORT':
+            ComPorts = [p.device for p in serial.tools.list_ports.comports()]
+            create_tk_combobox(motion_frame, ComPorts, row1, 1, key)
+            row1 +=1
+        elif key == 'INSTR_ID':
+            create_tk_combobox(ff_frame, available_resources, row2, 1, key)
+            row2 += 1
+        elif key == 'Enable_Gating':
+            create_tk_combobox(ff_frame, [0, 1], row2, 1, key)
+            row2 += 1
+        else:
+            if key in motion_frame_settings:
+                create_tk_entry(motion_frame, row1, 1, key, ff_mode)
+                row1 += 1
+            else: 
+                create_tk_entry(ff_frame, row2, 1, key, ff_mode)
+                row2 += 1 
+
+    ok_button1 = tk.Button(motion_frame, text="OK", command=lambda: OK_press(ff_mode), height=1, width=10, state=tk.DISABLED)
+    ok_button1.grid(row=row1, column=0, columnspan=2, rowspan=2)
+    ok_button2 = tk.Button(ff_frame, text="OK", command=lambda: OK_press(ff_mode), height=1, width=10, state=tk.DISABLED)
+    ok_button2.grid(row=row2, column=0, columnspan=2, rowspan=2)
     
-    # If SA mode
-    if ff_mode == 'sa':
-        # Create a listbox and add availble resources
-        tk.Label(root, text="INSTRUMENT ID:").grid(row=0)
-        tk.Label(root, text="MOTION CONTROLLER PORT:").grid(row=1)
-        tk.Label(root, text="START ANGLE:").grid(row=2)
-        tk.Label(root, text="STEP SIZE:").grid(row=3)
-        tk.Label(root, text="STOP ANGLE:").grid(row=4)
-        tk.Label(root, text="FREQUENCY SPAN (Hz):").grid(row=5)
-        tk.Label(root, text="CENTER FREQUENCY (Hz):").grid(row=6)
-        tk.Label(root, text="VIDEO BANDWIDTH (Hz):").grid(row=7)
-        tk.Label(root, text="RESOLUTION BANDWIDTH (Hz):").grid(row=8)
-        
-        combo1 = ttk.Combobox(values=available_resources, state="readonly")
-        combo1.grid(row=0, column=1)
-        ComPorts = [p.device for p in serial.tools.list_ports.comports()]
-        combo2 = ttk.Combobox(values=ComPorts, state="readonly")
-        combo2.grid(row=1, column=1)
-
-        start = tk.Entry(root)
-        start.insert(0,setup_items[ff_mode]['Start_Angle'])
-        start.grid(row=2, column=1)
-        step = tk.Entry(root)
-        step.insert(0,setup_items[ff_mode]['Step_Size'])
-        step.grid(row=3, column=1)
-        stop = tk.Entry(root)
-        stop.insert(0,setup_items[ff_mode]['Stop_Angle'])
-        stop.grid(row=4, column=1)
-        span = tk.Entry(root)
-        span.insert(0,setup_items[ff_mode]['Span'])
-        span.grid(row=5, column=1)
-        center = tk.Entry(root)
-        center.insert(0,setup_items[ff_mode]['Center_Freq'])
-        center.grid(row=6, column=1)
-        vbw = tk.Entry(root)
-        vbw.insert(0,setup_items[ff_mode]['VBW'])
-        vbw.grid(row=7, column=1)
-        rbw = tk.Entry(root)
-        rbw.insert(0, setup_items[ff_mode]['RBW'])
-        rbw.grid(row=8, column=1)
-
-        ok_button = tk.Button(root, text="OK", command=OK_press, height=1, width=10)
-        ok_button.grid(row=9, column=0, columnspan=2, rowspan=2)
-        
-    # Else if NA mode
-    elif ff_mode == 'na':
-        # Create a listbox and add availble resources
-        tk.Label(root, text="INSTRUMENT ID:").grid(row=0)
-        tk.Label(root, text="MOTION CONTROLLER PORT:").grid(row=1)
-        tk.Label(root, text="START ANGLE:").grid(row=2)
-        tk.Label(root, text="STEP SIZE:").grid(row=3)
-        tk.Label(root, text="STOP ANGLE:").grid(row=4)
-        tk.Label(root, text="FREQUENCY SPAN (Hz):").grid(row=5)
-        
-        combo1 = ttk.Combobox(values=available_resources, state="readonly")
-        combo1.grid(row=0, column=1)
-        ComPorts = [p.device for p in serial.tools.list_ports.comports()]
-        combo2 = ttk.Combobox(values=ComPorts, state="readonly")
-        combo2.grid(row=1, column=1)
-        
-        start = tk.Entry(root)
-        start.insert(0,setup_items[ff_mode]['Start_Angle'])
-        start.grid(row=2, column=1)
-        step = tk.Entry(root)
-        step.insert(0,setup_items[ff_mode]['Step_Size'])
-        step.grid(row=3, column=1)
-        stop = tk.Entry(root)
-        stop.insert(0,setup_items[ff_mode]['Stop_Angle'])
-        stop.grid(row=4, column=1)
-        span = tk.Entry(root)
-        span.insert(0,setup_items[ff_mode]['Span'])
-        span.grid(row=5, column=1)
-        points = tk.Entry(root)
-        points.insert(0,setup_items[ff_mode]['Num_Points'])
-        points.grid(row=6, column=1)
-        passes = tk.Entry(root)
-        passes.insert(0,setup_items[ff_mode]['Average_Passes'])
-        passes.grid(row=7, column=1)
-        ifbw = tk.Entry(root)
-        ifbw.insert(0,setup_items[ff_mode]['IFBW'])
-        ifbw.grid(row=8, column=1)
-        
-        # Grid positioning may have to change
-        ok_button = tk.Button(root, text="OK", command=OK_press, height=1, width=10)
-        ok_button.grid(row=9, column=0, columnspan=2, rowspan=2)
-        
+    # Bind the validation function to Combobox selection event
+    for widget in widget_mapping.values():
+        if isinstance(widget, ttk.Combobox):
+            widget.bind("<<ComboboxSelected>>", lambda event, w=widget: validate_comboboxes(ok_button1, ok_button2))
+            
     root.mainloop()
