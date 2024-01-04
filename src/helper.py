@@ -224,7 +224,9 @@ def run_na(setup_items, my_instrument, ser, ff_mode, Total_Paths):
                 # Wait for arm to move + NA to finish averaging
                 time.sleep(6)
                 # Read all markers
-                # MAY HAVE TO ENABLE TIME GATING HERE EVERY LOOP IF THE HIGHEST PEAK MOVES TO MUCH DURING TESTING
+                # Enable time gating if the user wants it
+                if (setup_items[ff_mode]['Enable_Gating']):
+                    enable_time_gate(my_instrument, ff_mode)  # Note that time gating is still enabled after returning here but transform is off
                 value = my_instrument.query_ascii_values(':calc:mark:y?')
                 print(f"Freq: {setup_items[ff_mode]['Center_Freq']}")
                 print(f"Value: {value} dB")
