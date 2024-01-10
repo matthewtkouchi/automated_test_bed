@@ -37,17 +37,17 @@ setup_items = {
     'na': {
         'INSTR_ID': None,
         'COM_PORT': None,
-        'Start_Angle': -86,
-        'Stop_Angle': 86,
+        'Start_Angle': -2,
+        'Stop_Angle': 2,
         'Step_Size': 2,
         'Span': 600e6, #Hz
-        'Center_Freq': 28e9, #Hz
+        'Center_Freq': 3.5e9, #Hz
         'Num_Points': 201,
         'Average_Passes': 2,
         'Average_Mode': 'SWEEP', #SWEEP or POINT
-        'IFBW': 1e3, # Hz
-        'Scale': 10, #dB/division
-        'Ref_Lvl': 0, #dB
+        'IFBW': 10e3, # Hz
+        'Scale': 5, #dB/division
+        'Ref_Lvl': -20, #dB
         'Power': -10, #dBm : Set power level from +3 to -45 dBm in .1 dB steps
         'Trigger_Source': 'INT', #INT or EXT
         'Start_Time': -10e-9, #s

@@ -40,9 +40,9 @@ ser = serial.Serial(
 )
 
 # Run the Radiation Pattern Measurement for the NA or SA
-if ff_mode == 'sa':
+if ff_mode == 'na':
     run_na(setup_items, my_instrument, ser, ff_mode, Total_Paths)
-elif ff_mode == 'na':
+elif ff_mode == 'sa':
     run_sa(setup_items, my_instrument, ser, ff_mode, Total_Paths)
 
 '''
